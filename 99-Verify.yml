@@ -1,0 +1,87 @@
+---
+# 99-verify.yml
+# Verificação completa do lab - corre no final
+# ansible-playbook -i inventory.ini 99-verify.yml
+
+- name: Verificação do Lab ITI
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Check disco
+      command: df -h /
+      register: disk
+      changed_when: false
+
+    - name: Check memória
+      command: free -h
+      register: mem
+      changed_when: false
+
+    - name: Check Docker
+      command: docker version --format '{{.Server.Version}}'
+      register: dockerv
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check node_exporter
+      uri:
+        url: http://localhost:9100/metrics
+        status_code: 200
+      register: exporter
+      ignore_errors: true
+
+    - name: Mostrar resumo por nó
+      debug:
+        msg:
+          - "HOST: {{ inventory_hostname }} ({{ ansible_host }})"
+          - "{{ disk.stdout_lines[1] }}"
+          - "Docker: {{ dockerv.stdout | default('NAO INSTALADO') }}"
+          - "Exporter 9100: {{ 'OK' if exporter.status is defined and exporter.status == 200 else 'FALHOU' }}"
+
+- name: Verificação do Monitoring no controlador
+  hosts: controller
+  become: true
+  tasks:
+    - name: Check Prometheus
+      uri:
+        url: http://localhost:9090/-/healthy
+        status_code: 200
+      register: prom
+      ignore_errors: true
+
+    - name: Check Grafana
+      uri:
+        url: http://localhost:3000/api/health
+        status_code: 200
+      register: grafana
+      ignore_errors: true
+
+    - name: Check targets Prometheus
+      uri:
+        url: http://localhost:9090/api/v1/targets
+        return_content: true
+      register: targets
+      ignore_errors: true
+
+    - name: Resumo final Monitoring
+      debug:
+        msg:
+          - "PROMETHEUS: {{ 'OK - http://192.168.57.10:9090' if prom.status is defined and prom.status == 200 else 'FALHOU' }}"
+          - "GRAFANA: {{ 'OK - http://192.168.57.10:3000 (admin/admin123)' if grafana.status is defined and grafana.status == 200 else 'FALHOU' }}"
+          - "TARGETS: {{ targets.content | default('sem dados') | truncate(500) }}"
+
+- name: Teste de conetividade Ansible
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Ping Ansible final
+      command: ansible -i {{ playbook_dir }}/inventory.ini all -m ping
+      register: ping
+      changed_when: false
+
+    - name: Mostrar ping
+      debug:
+        msg: "{{ ping.stdout_lines }}"
