@@ -103,4 +103,11 @@ Same as PT section. `/docs` contains step-by-step guides, `/ansible` the YAML ex
 ### Autores / Authors
 
 ITI - 2025/2026 - Docente: Henrique Santos
+Este laboratório foi desenvolvido com apoio de **Meta AI (Muse Spark)** no diagnóstico de erros, validação de comandos e formatação da documentação.
+> This lab was developed with assistance from **Meta AI (Muse Spark)** for troubleshooting, command validation and documentation formatting.
 Licença: MIT - Uso educacional.
+
+### Agradecimentos / Acknowledgements
+
+*   Meta AI pela ajuda na depuração da rede Host-only, sysprep e correção dos guias PT/EN.
+*   Comunidade Ubuntu e Ansible.
