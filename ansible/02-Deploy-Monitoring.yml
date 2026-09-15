@@ -1,12 +1,26 @@
 ---
 # 02-deploy-monitoring.yml
-# Deploy simples: node_exporter em cada nó + Prometheus + Grafana no node1 via Docker Compose
-# Executar: ansible-playbook -i inventory.ini 02-deploy-monitoring.yml
+# Versão CORRIGIDA: Prometheus + Grafana no CONTROLADOR (192.168.57.10)
+# Node_exporter em TODOS: controlador + node1 + node2
+# Executar no controlador: ansible-playbook -i inventory.ini 02-deploy-monitoring.yml
 
-- name: Deploy node_exporter nos nós
-  hosts: docker_nodes
+- name: Deploy node_exporter em todos os hosts
+  hosts: all
   become: true
   tasks:
+    - name: Garantir Docker ativo (necessário para node_exporter)
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+      ignore_errors: true
+
+    - name: Remover container antigo se existir
+      community.docker.docker_container:
+        name: node_exporter
+        state: absent
+      ignore_errors: true
+
     - name: Criar container node_exporter
       community.docker.docker_container:
         name: node_exporter
@@ -21,35 +35,43 @@
           - '/:/host:ro,rpath'
         pid_mode: host
 
-- name: Deploy stack Prometheus + Grafana no node1
-  hosts: node1
+- name: Deploy stack Prometheus + Grafana NO CONTROLADOR
+  hosts: controller
   become: true
   vars:
     stack_dir: /opt/monitoring
 
   tasks:
-    - name: Criar diretoria do stack
+    - name: Criar diretoria do stack no controlador
       file:
         path: "{{ stack_dir }}"
         state: directory
         mode: '0755'
 
-    - name: Criar prometheus.yml
+    - name: Criar prometheus.yml no controlador
       copy:
         dest: "{{ stack_dir }}/prometheus.yml"
         mode: '0644'
         content: |
           global:
             scrape_interval: 15s
+            evaluation_interval: 15s
+
           scrape_configs:
             - job_name: 'prometheus'
               static_configs:
                 - targets: ['localhost:9090']
-            - job_name: 'nodes'
-              static_configs:
-                - targets: ['192.168.57.11:9100','192.168.57.12:9100','192.168.57.10:9100']
 
-    - name: Criar docker-compose.yml
+            - job_name: 'docker_nodes'
+              static_configs:
+                - targets:
+                  - '192.168.57.10:9100'  # controller
+                  - '192.168.57.11:9100'  # node1
+                  - '192.168.57.12:9100'  # node2
+                  labels:
+                    env: 'lab'
+
+    - name: Criar docker-compose.yml no controlador
       copy:
         dest: "{{ stack_dir }}/docker-compose.yml"
         mode: '0644'
@@ -62,6 +84,10 @@
                 - "9090:9090"
               volumes:
                 - ./prometheus.yml:/etc/prometheus/prometheus.yml
+                - prometheus_data:/prometheus
+              command:
+                - '--config.file=/etc/prometheus/prometheus.yml'
+                - '--storage.tsdb.path=/prometheus'
               restart: unless-stopped
 
             grafana:
@@ -69,32 +95,45 @@
               container_name: grafana
               ports:
                 - "3000:3000"
-              environment:
-                - GF_SECURITY_ADMIN_PASSWORD=admin123
-              restart: unless-stopped
-
-            node_exporter:
-              image: prom/node-exporter:latest
-              container_name: node_exporter
-              ports:
-                - "9100:9100"
               volumes:
-                - '/:/host:ro,rpath'
-              command:
-                - '--path.rootfs=/host'
-              pid_mode: host
+                - grafana_data:/var/lib/grafana
+              environment:
+                - GF_SECURITY_ADMIN_USER=admin
+                - GF_SECURITY_ADMIN_PASSWORD=admin123
+                - GF_USERS_ALLOW_SIGN_UP=false
               restart: unless-stopped
 
-    - name: Arrancar stack (docker compose)
+          volumes:
+            prometheus_data:
+            grafana_data:
+
+    - name: Arrancar stack Prometheus+Grafana no controlador
       community.docker.docker_compose_v2:
         project_src: "{{ stack_dir }}"
         state: present
         pull: always
 
-    - name: Info final
+    - name: Esperar Prometheus responder
+      uri:
+        url: http://localhost:9090/-/healthy
+        status_code: 200
+      register: prom_health
+      until: prom_health.status == 200
+      retries: 12
+      delay: 5
+
+    - name: Info final - URLs
       debug:
         msg:
-          - "Prometheus: http://192.168.57.11:9090"
-          - "Grafana: http://192.168.57.11:3000 (admin / admin123)"
-          - "Node1 exporter: http://192.168.57.11:9100"
-          - "Node2 exporter: http://192.168.57.12:9100"
+          - "=========================================="
+          - "MONITORING NO CONTROLADOR - 192.168.57.10"
+          - "=========================================="
+          - "Prometheus: http://192.168.57.10:9090"
+          - "  -> Status > Targets deve mostrar 3 exporters UP"
+          - "Grafana: http://192.168.57.10:3000"
+          - "  -> login: admin / admin123"
+          - "Node Exporters:"
+          - "  - Controller: http://192.168.57.10:9100/metrics"
+          - "  - Node1: http://192.168.57.11:9100/metrics"
+          - "  - Node2: http://192.168.57.12:9100/metrics"
+          - "=========================================="
