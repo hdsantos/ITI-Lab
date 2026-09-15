@@ -1,0 +1,100 @@
+---
+# 02-deploy-monitoring.yml
+# Deploy simples: node_exporter em cada nó + Prometheus + Grafana no node1 via Docker Compose
+# Executar: ansible-playbook -i inventory.ini 02-deploy-monitoring.yml
+
+- name: Deploy node_exporter nos nós
+  hosts: docker_nodes
+  become: true
+  tasks:
+    - name: Criar container node_exporter
+      community.docker.docker_container:
+        name: node_exporter
+        image: prom/node-exporter:latest
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "9100:9100"
+        command:
+          - '--path.rootfs=/host'
+        volumes:
+          - '/:/host:ro,rpath'
+        pid_mode: host
+
+- name: Deploy stack Prometheus + Grafana no node1
+  hosts: node1
+  become: true
+  vars:
+    stack_dir: /opt/monitoring
+
+  tasks:
+    - name: Criar diretoria do stack
+      file:
+        path: "{{ stack_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Criar prometheus.yml
+      copy:
+        dest: "{{ stack_dir }}/prometheus.yml"
+        mode: '0644'
+        content: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+            - job_name: 'nodes'
+              static_configs:
+                - targets: ['192.168.57.11:9100','192.168.57.12:9100','192.168.57.10:9100']
+
+    - name: Criar docker-compose.yml
+      copy:
+        dest: "{{ stack_dir }}/docker-compose.yml"
+        mode: '0644'
+        content: |
+          services:
+            prometheus:
+              image: prom/prometheus:latest
+              container_name: prometheus
+              ports:
+                - "9090:9090"
+              volumes:
+                - ./prometheus.yml:/etc/prometheus/prometheus.yml
+              restart: unless-stopped
+
+            grafana:
+              image: grafana/grafana:latest
+              container_name: grafana
+              ports:
+                - "3000:3000"
+              environment:
+                - GF_SECURITY_ADMIN_PASSWORD=admin123
+              restart: unless-stopped
+
+            node_exporter:
+              image: prom/node-exporter:latest
+              container_name: node_exporter
+              ports:
+                - "9100:9100"
+              volumes:
+                - '/:/host:ro,rpath'
+              command:
+                - '--path.rootfs=/host'
+              pid_mode: host
+              restart: unless-stopped
+
+    - name: Arrancar stack (docker compose)
+      community.docker.docker_compose_v2:
+        project_src: "{{ stack_dir }}"
+        state: present
+        pull: always
+
+    - name: Info final
+      debug:
+        msg:
+          - "Prometheus: http://192.168.57.11:9090"
+          - "Grafana: http://192.168.57.11:3000 (admin / admin123)"
+          - "Node1 exporter: http://192.168.57.11:9100"
+          - "Node2 exporter: http://192.168.57.12:9100"

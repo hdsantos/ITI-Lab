@@ -1,0 +1,75 @@
+---
+# 01-install-docker.yml
+# Instala Docker Engine em Ubuntu 26.04 Resolute (minimized) via apt oficial + docker.io
+# Executar no controlador: ansible-playbook -i inventory.ini 01-install-docker.yml
+
+- name: Instalar Docker nos nós
+  hosts: docker_nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    docker_users: ["itiusr"]
+
+  tasks:
+    - name: Atualizar cache apt e instalar prerequisitos
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - python3-pip
+        state: present
+
+    - name: Instalar Docker (docker.io) - simples e estável para lab
+      apt:
+        name:
+          - docker.io
+          - docker-compose-plugin
+        state: present
+
+    - name: Garantir que o serviço Docker está ativo e no arranque
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Adicionar utilizador ao grupo docker
+      user:
+        name: "{{ item }}"
+        groups: docker
+        append: yes
+      loop: "{{ docker_users }}"
+
+    - name: Validar instalação - docker version
+      command: docker version
+      register: docker_version
+      changed_when: false
+
+    - name: Validar instalação - hello-world
+      community.docker.docker_container:
+        name: hello-test
+        image: hello-world
+        state: started
+        auto_remove: true
+      register: hello_result
+      ignore_errors: true
+
+    - name: Mostrar versões
+      debug:
+        msg:
+          - "{{ inventory_hostname }} OK"
+          - "{{ docker_version.stdout_lines | default([]) }}"
+
+- name: Validar a partir do controlador
+  hosts: controller
+  gather_facts: false
+  tasks:
+    - name: Check docker context nos nós
+      command: "ansible -i {{ playbook_dir }}/inventory.ini docker_nodes -m shell -a 'docker ps'"
+      changed_when: false
+      delegate_to: localhost
+      run_once: true
