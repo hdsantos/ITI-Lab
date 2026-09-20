@@ -14,12 +14,12 @@ Crie uma rede **SEM DHCP**, por exemplo:
 *   Máscara: `255.255.255.0`
 *   DHCP: Desligado
 
-Esta rede será a rede de gestão Ansible: `192.168.57.10` controlador, `192.168.57.11`, `.12`... nós.
+Esta rede será a rede de gestão Ansible: `192.168.57.10` controlador, `192.168.57.11`, `.12`... nós. Anote a designação desta rede.
 
 ## 2. Criação da VM Controlador
 
 *   ISO: Ubuntu Server 26.04.1
-*   **Desmarcar `Unattended Installation` / Skip Unattended Install** - Se não desmarcarem, o cloud-init fica agarrado e a rede não funciona como queremos.
+*   **Desmarcar `Unattended Installation` / Skip Unattended Install** - Se não desmarcar, o _cloud-init_ fica agarrado e a rede não funciona como queremos.
 *   Recursos: **2 vCPU, 4096 MB RAM mínimo, 20 GB disco**
 *   Rede:
     *   Adapter 1: **Bridged** (durante a instalação, para ter internet e fazer SSH do host)
@@ -32,21 +32,21 @@ VM desligada > Settings > System:
 *   Motherboard > Enable I/O APIC: **ON**
 *   Processor > **Enable PAE/NX: ON** (NX é obrigatório para 64-bit)
 *   Processor > Enable Nested Paging: **ON**
-*   Processor > Enable Nested VT-x/AMD-V: **OFF** (só é preciso para VM-dentro-de-VM/KVM. Para Docker deixa OFF, é mais rápido)
+*   Processor > Enable Nested VT-x/AMD-V: **OFF** (só é preciso para VM-dentro-de-VM/KVM. Para Docker deixar **OFF**, é mais rápido)
 *   Acceleration > Paravirtualization Interface: **KVM** (melhor para Linux)
 
-> **NOTA Segurança:** Durante a configuração inicial é preferível o Adapter 1 em Bridge para aceder por SSH do host Linux. Após a configuração, por segurança, devem mudar o Adapter 1 para **NAT** e passar a aceder ao controlador apenas via rede Host-only `192.168.57.10`.
+> **NOTA Segurança:** Durante a configuração inicial é preferível o Adapter 1 em Bridge para aceder por SSH do host Linux. Após a configuração, por segurança, deve mudar o Adapter 1 para **NAT** e passar a aceder ao controlador apenas via rede Host-only `192.168.57.10`.
 
 ## 3. Instalação do Ubuntu
 
 Instalação manual normal (~3 min). Quando perguntar pacotes, selecionar **OpenSSH server**.
 
-> O OpenSSH por defeito permite password auth, o que é considerado vulnerável em produção, mas para lab é útil para o primeiro acesso.
+> O OpenSSH por defeito permite _password auth_, o que é considerado vulnerável em produção, mas para um lab deste tipo é útil para o primeiro acesso.
 
-No primeiro boot:
+No primeiro boot, executar:
 
 ```bash
-ip a  # anotar IP do enp0s3 (Bridge)
+ip a  # anotar IP do enp0s3 (está em _Bridge_ e não funciona corretamente se a ligação do _bridge_ for a um interface ligado à Edurom; nesse caso terão que optar por NAT e recomeçar)
 
 # A partir do HOST Linux:
 ssh <user>@<ip-do-enp0s3>
@@ -98,7 +98,7 @@ network:
       optional: true
 ```
 
-Aplicar:
+Aplicar (ao remover ficheiros, se não existirem o erro deve simplesmente ser ignorado):
 
 ```bash
 sudo rm -f /etc/netplan/00-installer-config.yaml /etc/netplan/50-cloud-init.yaml
@@ -110,7 +110,7 @@ A partir de agora acedam por `ssh <user>@192.168.57.10`.
 
 ## 6. Swap e Extensão do Disco
 
-O Ubuntu cria o LV com ~50% do disco e sem swap. O `ansible` precisa de memória.
+O Ubuntu cria o LV com ~50% do disco e sem swap. O `ansible` precisa de memória em disco.
 
 ```bash
 # Verificar
@@ -133,10 +133,10 @@ df -h  # deve ficar com ~18G e 41% usado
 
 ## 7. Base Ansible
 
-**IMPORTANTE:** Não usem o PPA `ppa:ansible/ansible`. O pacote `ansible` completo tem 400MB+ e congela em VMs com pouca RAM. Usem `ansible-core`.
+**IMPORTANTE:** Não usar o PPA `ppa:ansible/ansible`. O pacote `ansible` completo tem 400MB+ e congela em VMs com pouca RAM. Usar apenas `ansible-core`.
 
 ```bash
-# Se tiverem adicionado o PPA antes, remover:
+# Se tiver adicionado o PPA antes, remover:
 sudo rm -f /etc/apt/sources.list.d/ansible-*.list
 sudo apt update
 
@@ -157,7 +157,7 @@ sudo apt install -f -y
 
 ## 8. Guest Additions (Opcional)
 
-Necessário para clipboard e pastas partilhadas.
+Necessário apenas para acesso ao _clipboard_ e pastas partilhadas.
 
 ```bash
 sudo apt install build-essential dkms linux-headers-$(uname -r) -y
@@ -170,6 +170,6 @@ sudo reboot
 
 ## 9. Snapshot
 
-Neste ponto, com rede, swap e ansible-core a funcionar, façam um snapshot: `Controlador-Pronto`.
+Neste ponto, com rede, swap e ansible-core a funcionar, faça um snapshot: `Controlador-Pronto`.
 
-Próximo passo: clonar nós minimized (sem Docker) e instalar Docker via Ansible.
+Próximo passo: clonar nós _minimized_ (sem Docker) e instalar Docker via Ansible.
