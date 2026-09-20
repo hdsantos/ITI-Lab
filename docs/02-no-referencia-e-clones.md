@@ -1,21 +1,21 @@
 # Lab Ansible + Docker + Monitoring - Parte 2: Nó de Referência e Clones
 
-Guia para criar o golden image minimized (1 vCPU / 2GB / 10GB) e clonar para node1/node2.
+Guia para criar a _golden image minimized_ (1 vCPU / 2GB / 10GB de disco) e clonar para node1/node2.
 Testado em Ubuntu Server 26.04.1 Resolute + VirtualBox 7.x.
 
 ## 1. Porquê Minimized?
 
-O ISO é o mesmo do controlador. Na instalação escolhem a opção **Minimized**.
+O ISO é o mesmo do controlador e os passos a seguir, bem como a configuração inicial, são semelhantes. Durante a instalação escolher a opção **Minimized**.
 Diferenças vs normal:
 - Sem `nano`, sem `netplan` (comando), sem `iputils-ping`
-- Sem `cloud-init` a fazer wait de 2 min no boot (arranca em 8s)
+- Sem `cloud-init` a fazer wait de 2 min no boot (arranca em cerca de 10s)
 - Disco final: 8.1G com 3.6G usados vs 18G do controlador
 
 ## 2. Criar VM `iti-no` (modelo)
 
 *   Nova VM: `iti-no` / 1 vCPU / 2048 MB RAM / 10 GB disco
 *   Rede:
-    *   Adapter 1: Bridged (para internet inicial)
+    *   Adapter 1: Bridged (para internet, inicialmente)
     *   Adapter 2: Host-only `192.168.57.1/24` (SEM DHCP)
 *   System > Processor:
     *   Enable PAE/NX: ON
@@ -33,15 +33,15 @@ O minimized não traz `nano`, `netplan` nem `ping`.
 
 ```bash
 ip a
-# anotar IP do enp0s3 (bridge) ex: 192.168.1.68
+# anotar IP do enp0s3 (bridge) ex: 192.168.1.68 (se o bridge for com um interface ligado à Eduroam o IP não será atribuído e deverá escolher NAT, repetindo o processo)
 # Ligar do host:
 ssh itiusr@192.168.1.68
 
-# Instalar o que falta (seguro, não parte nada)
+# Instalar o que falta (seguro, não estraga nada)
 sudo apt update
 sudo apt install netplan.io nano iputils-ping net-tools iproute2 -y --no-install-recommends
 
-# Limpeza (minimized já é limpo, mas remover restos)
+# Limpeza (minimized já é limpo, mas é melhor remover restos)
 sudo apt purge cloud-init -y
 sudo rm -rf /etc/cloud /var/lib/cloud
 sudo apt purge snapd -y
@@ -80,7 +80,7 @@ sudo chmod 600 /etc/netplan/*.yaml
 sudo netplan generate
 sudo netplan apply
 ip a
-# Deve mostrar enp0s3 com 192.168.1.x e enp0s8 com 192.168.57.11
+# Deve mostrar enp0s3 com 192.168.1.x (depende do seu sistema) e enp0s8 com 192.168.57.11
 
 ping 192.168.57.10  # ping para o controlador
 ```
@@ -121,7 +121,7 @@ sudo poweroff
 
 VM desligada `iti-no` (agora `node1`) > Clique direito > Clone:
 
-*   Nome: `node1` (se ainda não renomeaste) ou `node2`
+*   Nome: `node1` (se ainda não renomeou) ou `node2`
 *   Tipo: **Full Clone**
 *   **Marcar: Generate new MAC addresses** (obrigatório)
 
@@ -132,7 +132,7 @@ Repetir para criar `node2`.
 Arrancar `node2` pela consola do VirtualBox (Show):
 
 ```bash
-# Se o machine-id ainda estiver vazio:
+# Se o machine-id ainda estiver vazio (ver e alterar:
 cat /etc/machine-id
 sudo systemd-machine-id-setup
 
@@ -156,7 +156,7 @@ sudo reboot
 
 ### 6.2 Verificar `node1` (se SSH não arrancou)
 
-Se clonaste a partir de `iti-no` já com sysprep, o `node1` também ficou sem chaves. Fazer o mesmo que no `node2`:
+Se clonou a partir de `iti-no` já com sysprep, o `node1` também ficou sem chaves. Fazer o mesmo que no `node2`:
 
 ```bash
 sudo systemd-machine-id-setup
