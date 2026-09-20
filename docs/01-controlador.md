@@ -1,6 +1,7 @@
 # Lab Ansible + Docker + Monitoring - Setup do Controlador (VirtualBox)
 
 Guia para Ubuntu Server 26.04 (Resolute) com VirtualBox 7.x. Testado com controlador de 4GB RAM.
+Nas instruções que se seguem é assumido que os alunos estão familiarizados com as operações básicas no ambiente de virtualização (criar VMs; tipos de redes - bridge, host-only e NAT; configuração básica das VMs, etc.)
 
 ## 1. Rede VirtualBox
 
@@ -8,7 +9,7 @@ No VirtualBox > Tools > Network > **Host-only Networks** > Create.
 
 Crie uma rede **SEM DHCP**, por exemplo:
 
-*   **IPv4:** `192.168.57.1/24`  (ATENÇÃO: no teu rascunho estava `129.168.57.1` - é `192`)
+*   **IPv4:** `192.168.57.1/24`
 *   Máscara: `255.255.255.0`
 *   DHCP: Desligado
 
