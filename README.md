@@ -32,11 +32,19 @@ Base do Laboratório de virtualização para o projeto prático da UC de Infraes
 ├── docs/
 │   ├── 01-controlador.md                  <- Setup detalhado do Controlador
 │   └── 02-no-referencia-e-clones.md       <- Golden image minimized + clones + sysprep
+|   └── 03-pdfer2container.md              <- Colocar o PDFer a correr no node1
 ├── ansible/
 │   ├── inventory.ini                      <- Inventário com node1/node2
 │   ├── 01-install-docker.yml              <- (a criar) Instala Docker nos nós
 │   ├── 02-deploy-monitoring.yml           <- (a criar) Prometheus + Grafana
 │   └── group_vars/
+├── docker/
+│   ├── pdfer/
+│   │   ├── pdfer                         <- Executável Linux fornecido
+│   │   ├── Dockerfile                    <- Imagem do servidor
+│   │   ├── compose.yaml                  <- Execução no node1
+│   │   └── store/                        <- Dados persistentes, não versionados
+│   └── monitoring/                       <- (a criar) Prometheus e Grafana
 └── scripts/
     └── sysprep.sh                         <- Script de limpeza para clones
 ```
@@ -58,10 +66,19 @@ ansible -i ansible/inventory.ini docker_nodes -m ping
 # deve dar pong em node1 e node2
 ```
 
+**5. PDFer no `node1`:** Seguir [docs/03-pdfer2container.md](docs/03-pdfer2container.md)
+> Cria uma imagem com o executável Linux fornecido (`pdfer`), inicia o servidor num contentor Docker, publica a porta 8080 e mantém a pasta `store` persistente no nó.
+
+Depois do deployment, validar a partir do controlador:
+
+```bash
+curl http://192.168.57.11:8080/files
+```
+
 #### Notas de Segurança para Alunos
 
 *   OpenSSH com password auth é apenas para lab. Em produção usar chaves.
-*   Após configuração inicial, mudar Adapter 1 de Bridge para NAT e aceder apenas via Host-only.
+*   Após configuração inicial, mudar Adapter 1 de Bridge para NAT e aceder apenas via rede Host-only.
 *   Nunca expor a rede `192.168.57.0/24` para fora do VirtualBox.
 
 ---
@@ -80,13 +97,20 @@ Same as diagram above.
 
 #### Repository Structure
 
-Same as PT section. `/docs` contains step-by-step guides, `/ansible` the YAML example playbooks.
+Same as PT section. `/docs` contains step-by-step guides, `/ansible` the YAML example playbooks, and `/docker` contains the resources to deply the `pdfer server`.
 
 #### Quick Start
 
 1. Follow [docs/01-controlador.md](docs/01-controlador.md) for controller setup
 2. Follow [docs/02-no-referencia-e-clones.md](docs/02-no-referencia-e-clones.md) for golden image and clones
 3. Validate with `ansible -m ping`
+4. Follow [docs/03-pdfer2container.md](docs/03-pdfer2container.md) to build and run the PDFer container on `node1`
+
+The PDFer executable, `Dockerfile`, and `compose.yaml` are kept under `docker/pdfer/`. After deployment, validate the server from the controller:
+
+```bash
+curl http://192.168.57.11:8080/files
+```
 
 #### Key Troubleshooting Learned
 
