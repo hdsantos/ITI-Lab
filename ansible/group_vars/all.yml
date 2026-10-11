@@ -21,3 +21,11 @@ monitoring_prometheus_memory: 512m
 # Grafana
 monitoring_grafana_port: 3000
 monitoring_grafana_memory: 256m
+
+# Apenas para verificação
+# Endereço do controlador acessível a partir do host
+monitoring_controller_address: 192.168.57.10
+
+# Nós onde se espera encontrar o PDFer
+pdfer_nodes:
+  - node1
