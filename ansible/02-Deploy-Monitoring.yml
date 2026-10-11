@@ -75,6 +75,7 @@
   gather_facts: false
 
   vars:
+    ansible_become_exe: /usr/bin/sudo.ws
     stack_dir: /opt/iti-monitoring
 
   tasks:
