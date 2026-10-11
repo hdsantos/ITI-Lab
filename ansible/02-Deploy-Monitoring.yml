@@ -33,7 +33,7 @@
         content: |
           services:
             cadvisor:
-              image: ghcr.io/google/cadvisor:v0.55.1
+              image: "{{ monitoring_cadvisor_image }}"
               container_name: cadvisor
               restart: unless-stopped
               privileged: true
