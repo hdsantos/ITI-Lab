@@ -164,10 +164,18 @@ sudo ssh-keygen -A
 sudo systemctl enable ssh
 sudo systemctl restart ssh
 ```
-
 ## 7. Validação a partir do controlador
 
 No controlador (`192.168.57.10`):
+
+Nesta fase e antes de validar a operação do Ansible, é necessário copiar a chave pública do controlador, criada durante a sua instalação. Relembra-se aqui que o Ansible não usa a autenticação por password no SSH, uma vez que não é suposto executar interativamente. Assim, recorre habitualmente à autenticação por chave pública/privada.
+
+```bash
+ssh-copy-id itiusr@192.168.57.11
+# Se estiverem os dois nós em execuçã
+ssh-copy-id itiusr@192.168.57.12
+```
+e agora a verificação
 
 ```bash
 cd ~/ansible-lab
@@ -177,7 +185,7 @@ node1 ansible_host=192.168.57.11 ansible_user=itiusr
 node2 ansible_host=192.168.57.12 ansible_user=itiusr
 
 [docker_nodes:vars]
-ansible_become=true
+ansible_python_interpreter=/usr/bin/python3
 EOF
 
 ansible -i inventory.ini docker_nodes -m ping
@@ -188,6 +196,10 @@ ansible -i inventory.ini docker_nodes -a "df -h / | tail -1"
 ```
 
 Se der `pong` nos dois, o lab está pronto para `ansible-playbook 01-install-docker.yml`.
+
+NOTA: Se durante o ping obtiver um **warning** relativo ao python, isso não é um problema. A secção [docker_nodes:vars] tem uma declaração que deve evitar esse aviso, mas esse detalhe pode sofrer alterações com versões diferentes.
+
+NOTA: a versão anterior desta documentação incluia a declaração **ansible_become=true**, que indicava ao Ansible para executar os comandos como root. Essa opção levanta algumas dificuldades de configuração nos nós e foi abandonada.
 
 ## Troubleshooting
 

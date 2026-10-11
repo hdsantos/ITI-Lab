@@ -53,6 +53,16 @@ ssh <user>@<ip-do-enp0s3>
 # yes ao fingerprint
 ```
 
+No entanto, o Ansible utilizará SSH para a **comunicação do controlador para os nós**, uma vez que não fará sentido usar password, nessa fase. Por isso, será agora criado o par de chaves SSH do utilizador itiusr. A chave pública será copiada para os nós depois da respetiva criação. Executar (aceitar todas as opções predefinidas e NÃO COLOCAR NENHUMA PASSPHRASE):
+
+```bash
+ssh-keygen -t ed25519
+```
+No final verificar que o par de chaves foi efetivamente criado:
+```bash
+ls -l ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub
+```
+
 ## 4. Limpeza do cloud-init
 
 O Ubuntu Server traz cloud-init por defeito. Para um controlador Ansible é lixo e atrasa o boot em 2 min.
