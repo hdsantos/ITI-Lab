@@ -175,10 +175,10 @@ ssh-copy-id itiusr@192.168.57.11
 # Se estiverem os dois nós em execuçã
 ssh-copy-id itiusr@192.168.57.12
 ```
-e agora a verificação
+e agora a verificação (NOTA: Caso o controlador tenha sido criado anteriormente e o repositório ITI-Lab tenha entretanto sido atualizado, execute `git pull` em `~/ITI-Lab` antes de continuar.
 
 ```bash
-cd ~/ansible-lab
+cd ~/ITI-Lab/ansible
 cat > inventory.ini <<'EOF'
 [docker_nodes]
 node1 ansible_host=192.168.57.11 ansible_user=itiusr
@@ -187,15 +187,34 @@ node2 ansible_host=192.168.57.12 ansible_user=itiusr
 [docker_nodes:vars]
 ansible_python_interpreter=/usr/bin/python3
 EOF
+```
 
+NOTA: este ficherio de inventário inclui os dois nós. Se por alguma razão apenas tiver um nó, ou se tiver mais do que dois, deve apenas atualizar este ficheiro de inventári.
+
+```bash
 ansible -i inventory.ini docker_nodes -m ping
 # node1 | SUCCESS => pong
 # node2 | SUCCESS => pong
 
-ansible -i inventory.ini docker_nodes -a "df -h / | tail -1"
+ansible -i inventory.ini docker_nodes -a "df -h"
 ```
 
-Se der `pong` nos dois, o lab está pronto para `ansible-playbook 01-install-docker.yml`.
+Se der `pong` nos nós indicados, o lab está pronto para a fase seguinte que consiste na instalção do Docker.
+
+## 8. Instalação do Docker nos nós
+
+Depois de confirmar que os nós respondem ao módulo `ping`, instalar o Docker através do playbook fornecido, a partir do **controlador** (o respetivo playbook é executado no controlador e instala Docker remotamente em todos os hosts definidos no grupo `docker_nodes` do ficheiro `inventory.ini`).
+
+```bash
+# assumindo que está na diretoria ~/ITI-Lab/ansible
+ansible-playbook - inventory.ini 01-Install-Docker.yml -k
+```
+
+A opção `-K` solicita a password de `sudo` do utilizador `itiusr`, necessária porque a instalação de pacotes e a configuração do serviço Docker exigem privilégios administrativos. Como se pode observar, o `playbook` adiciona o utilizador `itiusr` ao grupo `docker` para que não seja necessário executar os comandos Docker com sudo. No entanto, essa alteração exige a reinicialização dos nós antes de entrar em efeito. Em cada um dos nós, executar:
+
+```bash
+sudo reboot
+```
 
 NOTA: Se durante o ping obtiver um **warning** relativo ao python, isso não é um problema. A secção [docker_nodes:vars] tem uma declaração que deve evitar esse aviso, mas esse detalhe pode sofrer alterações com versões diferentes.
 

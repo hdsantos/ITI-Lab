@@ -178,6 +178,32 @@ sudo /mnt/cdrom/VBoxLinuxAdditions.run
 sudo reboot
 ```
 
+## 9. Obter os ficheiros do laboratório
+
+O controlador será utilizado para executar os playbooks Ansible. Por esse motivo, o repositório ITI-Lab deverá ficar disponível nesta máquina.
+
+Instalar o Git, caso ainda não esteja disponível:
+
+```bash
+sudo apt update
+sudo apt install git -y
+```
+
+Clonar o repositório:
+
+```bash
+cd ~
+git clone https://github.com/hdsantos/ITI-Lab.git
+```
+
+e confirmar a estrutura:
+
+```bash
+cd ~/ITI-Lab
+ls
+ls ansible
+```
+
 ## 9. Snapshot
 
 Neste ponto, com rede, swap e ansible-core a funcionar, faça um snapshot: `Controlador-Pronto`.
