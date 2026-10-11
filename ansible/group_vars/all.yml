@@ -1,0 +1,22 @@
+# Componentes de monitorização
+monitoring_cadvisor_enabled: true
+monitoring_grafana_enabled: true # Colocar false para não instalar
+
+# cAdvisor
+monitoring_cadvisor_port: 8081
+monitoring_cadvisor_memory: 128m
+
+# node_exporter: será utilizada na fase de multiprocessamento
+monitoring_node_exporter_enabled: false
+monitoring_node_exporter_port: 9100
+
+# Prometheus
+monitoring_prometheus_port: 9090
+monitoring_prometheus_scrape_interval: 10s
+monitoring_prometheus_retention_time: 3d
+monitoring_prometheus_retention_size: 1GB
+monitoring_prometheus_memory: 512m
+
+# Grafana
+monitoring_grafana_port: 3000
+monitoring_grafana_memory: 256m
