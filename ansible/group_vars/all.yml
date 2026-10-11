@@ -3,6 +3,7 @@ monitoring_cadvisor_enabled: true
 monitoring_grafana_enabled: true # Colocar false para não instalar
 
 # cAdvisor
+monitoring_cadvisor_image: ghcr.io/google/cadvisor:0.60.6
 monitoring_cadvisor_port: 8081
 monitoring_cadvisor_memory: 128m
 
