@@ -25,10 +25,10 @@
         state: present
 
     - name: Instalar Docker (docker.io) - simples e estável para lab
-      apt:
+      ansible.builtin.apt:
         name:
           - docker.io
-          - docker-compose-plugin
+          - docker-compose-v2
         state: present
 
     - name: Garantir que o serviço Docker está ativo e no arranque
@@ -50,26 +50,13 @@
       changed_when: false
 
     - name: Validar instalação - hello-world
-      community.docker.docker_container:
-        name: hello-test
-        image: hello-world
-        state: started
-        auto_remove: true
+      ansible.builtin.command:
+        cmd: docker run --rm hello-world
       register: hello_result
-      ignore_errors: true
+      changed_when: false
 
     - name: Mostrar versões
       debug:
         msg:
           - "{{ inventory_hostname }} OK"
           - "{{ docker_version.stdout_lines | default([]) }}"
-
-- name: Validar a partir do controlador
-  hosts: controller
-  gather_facts: false
-  tasks:
-    - name: Check docker context nos nós
-      command: "ansible -i {{ playbook_dir }}/inventory.ini docker_nodes -m shell -a 'docker ps'"
-      changed_when: false
-      delegate_to: localhost
-      run_once: true
