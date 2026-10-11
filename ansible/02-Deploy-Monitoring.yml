@@ -1,139 +1,224 @@
 ---
-# 02-deploy-monitoring.yml
-# Versão CORRIGIDA: Prometheus + Grafana no CONTROLADOR (192.168.57.10)
-# Node_exporter em TODOS: controlador + node1 + node2
-# Executar no controlador: ansible-playbook -i inventory.ini 02-deploy-monitoring.yml
+# 02-Deploy-Monitoring.yml
+#   cAdvisor nos nós Docker.
+#   Prometheus e, opcionalmente, Grafana no controlador.
+#
+# Execução:
+#   ansible-playbook -i inventory.ini 02-Deploy-Monitoring.yml -K
+#
+# Sem Grafana:
+# ansible-playbook -i inventory.ini 02-Deploy-Monitoring.yml -K \
+#   -e monitoring_grafana_enabled=false (ou alterar a entrada no ficheiro group_vars/all.yml)
 
-- name: Deploy node_exporter em todos os hosts
-  hosts: all
+- name: Instalar cAdvisor nos nós Docker
+  hosts: docker_nodes
   become: true
+  gather_facts: false
+
+  vars:
+    cadvisor_dir: /opt/iti-cadvisor
+
   tasks:
-    - name: Garantir Docker ativo (necessário para node_exporter)
-      systemd:
+    - name: Criar diretoria do cAdvisor
+      ansible.builtin.file:
+        path: "{{ cadvisor_dir }}"
+        state: directory
+        mode: "0755"
+      when: monitoring_cadvisor_enabled | bool
+
+    - name: Criar Compose do cAdvisor
+      ansible.builtin.copy:
+        dest: "{{ cadvisor_dir }}/compose.yaml"
+        mode: "0644"
+        content: |
+          services:
+            cadvisor:
+              image: ghcr.io/google/cadvisor:v0.55.1
+              container_name: cadvisor
+              restart: unless-stopped
+              privileged: true
+              ports:
+                - "{{ monitoring_cadvisor_port }}:8080"
+              devices:
+                - /dev/kmsg:/dev/kmsg
+              volumes:
+                - /:/rootfs:ro
+                - /var/run:/var/run:ro
+                - /sys:/sys:ro
+                - /var/lib/docker:/var/lib/docker:ro
+                - /dev/disk:/dev/disk:ro
+              mem_limit: "{{ monitoring_cadvisor_memory }}"
+      when: monitoring_cadvisor_enabled | bool
+
+    - name: Arrancar cAdvisor
+      ansible.builtin.command:
+        cmd: docker compose up -d --remove-orphans
+        chdir: "{{ cadvisor_dir }}"
+      changed_when: false
+      when: monitoring_cadvisor_enabled | bool
+
+    - name: Esperar que o cAdvisor responda
+      ansible.builtin.uri:
+        url: "http://localhost:{{ monitoring_cadvisor_port }}/metrics"
+        status_code: 200
+      register: cadvisor_health
+      until: cadvisor_health.status == 200
+      retries: 12
+      delay: 5
+      when: monitoring_cadvisor_enabled | bool
+
+
+- name: Instalar Prometheus e Grafana no controlador
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: false
+
+  vars:
+    stack_dir: /opt/iti-monitoring
+
+  tasks:
+    - name: Instalar Docker no controlador
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Garantir que o Docker está ativo
+      ansible.builtin.systemd:
         name: docker
         state: started
         enabled: true
-      ignore_errors: true
 
-    - name: Remover container antigo se existir
-      community.docker.docker_container:
-        name: node_exporter
-        state: absent
-      ignore_errors: true
-
-    - name: Criar container node_exporter
-      community.docker.docker_container:
-        name: node_exporter
-        image: prom/node-exporter:latest
-        state: started
-        restart_policy: unless-stopped
-        ports:
-          - "9100:9100"
-        command:
-          - '--path.rootfs=/host'
-        volumes:
-          - '/:/host:ro,rpath'
-        pid_mode: host
-
-- name: Deploy stack Prometheus + Grafana NO CONTROLADOR
-  hosts: controller
-  become: true
-  vars:
-    stack_dir: /opt/monitoring
-
-  tasks:
-    - name: Criar diretoria do stack no controlador
-      file:
+    - name: Criar diretoria de monitorização
+      ansible.builtin.file:
         path: "{{ stack_dir }}"
         state: directory
-        mode: '0755'
+        mode: "0755"
 
-    - name: Criar prometheus.yml no controlador
-      copy:
+    - name: Criar configuração do Prometheus
+      ansible.builtin.copy:
         dest: "{{ stack_dir }}/prometheus.yml"
-        mode: '0644'
+        mode: "0644"
         content: |
           global:
-            scrape_interval: 15s
-            evaluation_interval: 15s
+            scrape_interval: "{{ monitoring_prometheus_scrape_interval }}"
+            evaluation_interval: "{{ monitoring_prometheus_scrape_interval }}"
 
           scrape_configs:
-            - job_name: 'prometheus'
-              static_configs:
-                - targets: ['localhost:9090']
-
-            - job_name: 'docker_nodes'
+            - job_name: prometheus
               static_configs:
                 - targets:
-                  - '192.168.57.10:9100'  # controller
-                  - '192.168.57.11:9100'  # node1
-                  - '192.168.57.12:9100'  # node2
-                  labels:
-                    env: 'lab'
+                    - "localhost:9090"
 
-    - name: Criar docker-compose.yml no controlador
-      copy:
-        dest: "{{ stack_dir }}/docker-compose.yml"
-        mode: '0644'
+          {% if monitoring_cadvisor_enabled | bool %}
+            - job_name: cadvisor
+              static_configs:
+                - targets:
+          {% for host in groups['docker_nodes'] %}
+                    - "{{ hostvars[host].ansible_host }}:{{ monitoring_cadvisor_port }}"
+          {% endfor %}
+                  labels:
+                    environment: iti-lab
+          {% endif %}
+
+    - name: Criar diretoria de provisioning do Grafana
+      ansible.builtin.file:
+        path: "{{ stack_dir }}/provisioning/datasources"
+        state: directory
+        mode: "0755"
+      when: monitoring_grafana_enabled | bool
+
+    - name: Configurar Prometheus como datasource do Grafana
+      ansible.builtin.copy:
+        dest: "{{ stack_dir }}/provisioning/datasources/prometheus.yml"
+        mode: "0644"
+        content: |
+          apiVersion: 1
+
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://prometheus:9090
+              isDefault: true
+              editable: true
+      when: monitoring_grafana_enabled | bool
+
+    - name: Criar Compose da monitorização
+      ansible.builtin.copy:
+        dest: "{{ stack_dir }}/compose.yaml"
+        mode: "0644"
         content: |
           services:
             prometheus:
               image: prom/prometheus:latest
               container_name: prometheus
-              ports:
-                - "9090:9090"
-              volumes:
-                - ./prometheus.yml:/etc/prometheus/prometheus.yml
-                - prometheus_data:/prometheus
-              command:
-                - '--config.file=/etc/prometheus/prometheus.yml'
-                - '--storage.tsdb.path=/prometheus'
               restart: unless-stopped
+              ports:
+                - "{{ monitoring_prometheus_port }}:9090"
+              volumes:
+                - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+                - prometheus-data:/prometheus
+              command:
+                - "--config.file=/etc/prometheus/prometheus.yml"
+                - "--storage.tsdb.path=/prometheus"
+                - "--storage.tsdb.retention.time={{ monitoring_prometheus_retention_time }}"
+                - "--storage.tsdb.retention.size={{ monitoring_prometheus_retention_size }}"
+              mem_limit: "{{ monitoring_prometheus_memory }}"
 
+          {% if monitoring_grafana_enabled | bool %}
             grafana:
               image: grafana/grafana:latest
               container_name: grafana
-              ports:
-                - "3000:3000"
-              volumes:
-                - grafana_data:/var/lib/grafana
-              environment:
-                - GF_SECURITY_ADMIN_USER=admin
-                - GF_SECURITY_ADMIN_PASSWORD=admin123
-                - GF_USERS_ALLOW_SIGN_UP=false
               restart: unless-stopped
+              ports:
+                - "{{ monitoring_grafana_port }}:3000"
+              volumes:
+                - grafana-data:/var/lib/grafana
+                - ./provisioning:/etc/grafana/provisioning:ro
+              environment:
+                GF_SECURITY_ADMIN_USER: admin
+                GF_SECURITY_ADMIN_PASSWORD: admin123
+                GF_USERS_ALLOW_SIGN_UP: "false"
+              mem_limit: "{{ monitoring_grafana_memory }}"
+              depends_on:
+                - prometheus
+          {% endif %}
 
           volumes:
-            prometheus_data:
-            grafana_data:
+            prometheus-data:
+          {% if monitoring_grafana_enabled | bool %}
+            grafana-data:
+          {% endif %}
 
-    - name: Arrancar stack Prometheus+Grafana no controlador
-      community.docker.docker_compose_v2:
-        project_src: "{{ stack_dir }}"
-        state: present
-        pull: always
+    - name: Arrancar serviços de monitorização
+      ansible.builtin.command:
+        cmd: docker compose up -d --remove-orphans
+        chdir: "{{ stack_dir }}"
+      changed_when: false
 
-    - name: Esperar Prometheus responder
-      uri:
-        url: http://localhost:9090/-/healthy
+    - name: Esperar que o Prometheus responda
+      ansible.builtin.uri:
+        url: "http://localhost:{{ monitoring_prometheus_port }}/-/healthy"
         status_code: 200
-      register: prom_health
-      until: prom_health.status == 200
+      register: prometheus_health
+      until: prometheus_health.status == 200
       retries: 12
       delay: 5
 
-    - name: Info final - URLs
-      debug:
+    - name: Mostrar informação final
+      ansible.builtin.debug:
         msg:
-          - "=========================================="
-          - "MONITORING NO CONTROLADOR - 192.168.57.10"
-          - "=========================================="
-          - "Prometheus: http://192.168.57.10:9090"
-          - "  -> Status > Targets deve mostrar 3 exporters UP"
-          - "Grafana: http://192.168.57.10:3000"
-          - "  -> login: admin / admin123"
-          - "Node Exporters:"
-          - "  - Controller: http://192.168.57.10:9100/metrics"
-          - "  - Node1: http://192.168.57.11:9100/metrics"
-          - "  - Node2: http://192.168.57.12:9100/metrics"
-          - "=========================================="
+          - "Prometheus: http://192.168.57.10:{{ monitoring_prometheus_port }}"
+          - >-
+            Grafana:
+            {{
+              'http://192.168.57.10:' ~ monitoring_grafana_port
+              if monitoring_grafana_enabled | bool
+              else 'desativado'
+            }}
+          - "Alvos esperados do cAdvisor: {{ groups['docker_nodes'] | length }}"
