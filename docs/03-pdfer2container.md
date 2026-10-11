@@ -43,26 +43,27 @@ A partir do controlador, confirmar primeiro a ligação ao nó:
 ssh itiusr@192.168.57.11
 ```
 
-No `node1`, criar o diretório do projeto e a pasta de armazenamento:
+Um vez dentro do `node1`, criar o diretório do projeto e a pasta de armazenamento:
 
 ```bash
 mkdir -p ~/pdfer-lab/store
 exit
 ```
 
-Copiar o executável fornecido para o nó:
+Copiar o executável `pdefer` já incluido na pasta `ÍTI-Lab/docker/pdefer` no repositório:
 
 ```bash
+cd ~/ITI-Lab/docker/pdfer
 scp pdfer itiusr@192.168.57.11:~/pdfer-lab/
 ```
 
-Copiar também o ficheiro `compose.yaml` disponibilizado com este guia:
+Copiar também o ficheiro `compose.yaml` disponibilizado na mesma pasta:
 
 ```bash
 scp compose.yaml itiusr@192.168.57.11:~/pdfer-lab/
 ```
 
-No final, o diretório deverá apresentar esta estrutura:
+No final, o diretório `pdefer-lab` no nó 1 deverá apresentar esta estrutura:
 
 ```text
 pdfer-lab/
@@ -72,7 +73,7 @@ pdfer-lab/
 └── store/
 ```
 
-O `Dockerfile` será criado no passo seguinte.
+**O ficheiro `Dockerfile` será criado no passo seguinte**.
 
 ## 3. Criar o `Dockerfile`
 
@@ -103,12 +104,12 @@ ENTRYPOINT ["/app/pdfer"]
 
 Este ficheiro estabelece que:
 
-- a imagem é baseada em Ubuntu Linux;
-- o diretório de execução do servidor é `/app`;
+- a imagem é baseada em Ubuntu Linux 26.04;
+- o diretório de execução do servidor (**dentro do container**) é `/app`;
 - o executável é copiado para `/app/pdfer`;
-- a pasta esperada pelo programa é `/app/store`;
-- o servidor utiliza a porta 8080;
-- o PDFer é iniciado automaticamente quando o contentor arranca.
+- a pasta usada para dados pelo programa é `/app/store`;
+- o servidor utiliza a porta 8080, que deve ficar `exposta`;
+- o PDFer é iniciado automaticamente quando o contentor arranca, usando o `entrypoint` indicado.
 
 ## 4. Verificar o `compose.yaml`
 
@@ -129,7 +130,7 @@ services:
     restart: unless-stopped
 ```
 
-A montagem `./store:/app/store` associa a pasta `store` do nó à pasta utilizada pelo servidor dentro do contentor. Deste modo:
+A montagem `./store:/app/store` associa a pasta `store` do nó, anteriormente criada, à pasta utilizada pelo servidor dentro do contentor. Deste modo:
 
 - os ficheiros permanecem no nó se o contentor for removido;
 - é possível observar diretamente os ficheiros cifrados;
@@ -137,7 +138,7 @@ A montagem `./store:/app/store` associa a pasta `store` do nó à pasta utilizad
 
 ## 5. Construir a imagem e iniciar o contentor
 
-No `node1`, dentro de `~/pdfer-lab`:
+No `node1`, a partir do controlador com o sheel remoto, dentro de `~/pdfer-lab`:
 
 ```bash
 docker compose up --build -d
@@ -151,13 +152,13 @@ Verificar o estado:
 docker compose ps
 ```
 
-Consultar os logs:
+Caso tenha problemas e o `pdfer` não aparecer como processo, pode ajudar consultar os logs:
 
 ```bash
 docker compose logs pdfer
 ```
 
-Se for necessário acompanhar continuamente os logs:
+e se for necessário acompanhar continuamente os logs:
 
 ```bash
 docker compose logs -f pdfer
@@ -167,13 +168,13 @@ docker compose logs -f pdfer
 
 ### 6.1 Listar os ficheiros
 
-No próprio `node1`:
+No próprio `node1` (diretamente ou por shell remoto):
 
 ```bash
 curl http://localhost:8080/files
 ```
 
-Ou a partir do controlador:
+Ou a partir do controlador, ou mesmo do host:
 
 ```bash
 curl http://192.168.57.11:8080/files
@@ -209,11 +210,12 @@ curl -X GET http://192.168.57.11:8080/files/teste.txt \
   -d '{"key":"chave-de-teste"}'
 ```
 
-## 7. Parar e voltar a criar o contentor
+## 7. Parar e voltar a executar o contentor
 
-Parar e remover o contentor:
+Parar o contentor, a partir do `node1`:
 
 ```bash
+cd ~/pdfer-lab
 docker compose down
 ```
 
