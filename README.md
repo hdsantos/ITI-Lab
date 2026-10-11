@@ -78,7 +78,7 @@ curl http://192.168.57.11:8080/files
 ```
 
 **6. Instalar a monitorização:** seguir [docs/04-monitorizacao.md](docs/04-monitorizacao.md).
-> EM particular inclui as referências à configuração com e sem Grafana e com apenas 1 nó.
+> Em particular inclui as referências à configuração com e sem Grafana e com apenas 1 nó.
 Configuração normal:
 
 ```bash
