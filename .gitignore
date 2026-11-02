@@ -1,3 +1,4 @@
-docker/pdfer/store/*
-!docker/pdfer/store/.gitkeep
-
+docker/pdfer-go/store/*
+docker/pdfer-python/store/*
+!docker/pdfer-go/store/.gitkeep
+!docker/pdfer-python/store/.gitkeep

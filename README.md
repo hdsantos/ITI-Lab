@@ -38,15 +38,20 @@ Base do Laboratório de virtualização para o projeto prático da UC de Infraes
 │   ├── inventory.ini                      <- Inventário com node1/node2
 │   ├── 01-install-docker.yml              <- (a criar) Instala Docker nos nós
 │   ├── 02-deploy-monitoring.yml           <- (a criar) Prometheus + Grafana
-│   ├── 99-Verify.yml                       <- validação final do laboratório
+│   ├── 99-Verify.yml                      <- validação final do laboratório
 │   └── group_vars/
-│       └── all.yml                         <- opções e perfis da monitorização
+│       └── all.yml                        <- opções e perfis da monitorização
 ├── docker/
-│   └── pdfer/
-│       ├── pdfer                         <- Executável Linux fornecido
-│       ├── Dockerfile                    <- Imagem do servidor
-│       ├── compose.yaml                  <- Execução no node1
-│       └── store/                        <- Dados persistentes, não versionados
+│   ├── pdfer-go/
+│   │   ├── pdfer                          <- Executável Linux fornecido
+│   │   ├── Dockerfile                     <- Imagem do servidor
+│   │   ├── compose.yaml                   <- Compose para o Go
+│   │   └── store/                         <- Dados persistentes do Go
+│   └── pdfer-python/
+│   │   ├── pdfer.py                       <- Script Python fornecido
+│   │   ├── Dockerfile                     <- Imagem do servidor baseado em Flask
+│   │   ├── compose.yaml                   <- Compose para o Python
+│   │   └── store/                         <- Dados persistentes do Python
 └── scripts/
     └── sysprep.sh                         <- Script de limpeza para clones
 ```

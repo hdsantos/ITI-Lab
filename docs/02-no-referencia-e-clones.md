@@ -29,7 +29,7 @@ Diferenças vs normal:
 
 ## 3. Primeiro boot - Instalar ferramentas em falta
 
-O minimized não traz `nano`, `netplan` nem `ping`.
+O minimized não traz `nano`, `netplan` nem `ping`. Nota: o `python3-flask` foi adicionado porque pode ser desejável fazer o pdfer em python.
 
 ```bash
 ip a
@@ -39,7 +39,7 @@ ssh itiusr@192.168.1.68
 
 # Instalar o que falta (seguro, não estraga nada)
 sudo apt update
-sudo apt install netplan.io nano iputils-ping net-tools iproute2 -y --no-install-recommends
+sudo apt install netplan.io nano iputils-ping net-tools iproute2 python3-flask -y --no-install-recommends
 
 # Limpeza (minimized já é limpo, mas é melhor remover restos)
 sudo apt purge cloud-init -y
