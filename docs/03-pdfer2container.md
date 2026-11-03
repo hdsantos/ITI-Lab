@@ -9,7 +9,7 @@ O `node1` já deverá ter:
 - acesso SSH com o utilizador `itiusr`;
 - Docker Engine e Docker Compose instalados pelo playbook `01-Install-Docker.yml`.
 
-Não é necessário instalar Go nem compilar o programa. O servidor é fornecido como um executável Linux denominado `pdfer`.
+Dependendo da tecnologia escolhida para o vosso projeto (Go ou Python), deverão seguir os passos respetivos para a preparação dos ficheiros.
 
 ## 1. Funcionamento do PDFer
 
@@ -25,7 +25,8 @@ O `POST /files` recebe no corpo do pedido:
 
 - `key`: chave utilizada para cifrar o ficheiro;
 - `length`: número de caracteres do ficheiro;
-- `fileName`: nome atribuído ao ficheiro.
+- `fileName`: nome atribuído ao ficheiro;
+- `pattern` (opcional, na versão Python): padrão de texto personalizado a repetir até atingir o comprimento pretendido.
 
 O `GET /files/{fileId}` recebe no corpo do pedido:
 
@@ -50,26 +51,43 @@ mkdir -p ~/pdfer-lab/store
 exit
 ```
 
+A partir do controlador, escolha a opção correspondente à tecnologia que vai implementar:
+
+### Opção A: Versão em Go
+
 Copiar o executável `pdefer` e os ficheiros de configuração, já incluidos na pasta `ÍTI-Lab/docker/pdefer-go` no repositório:
 
 ```bash
 cd ~/ITI-Lab/docker/pdfer-go
 scp pdfer itiusr@192.168.57.11:~/pdfer-lab/
 scp compose.yaml itiusr@192.168.57.11:~/pdfer-lab/
-scp dockerfile itiusr@192.168.57.11:~/pdfer-lab/
+scp Dockerfile itiusr@192.168.57.11:~/pdfer-lab/
+```
+
+### Opção B: Versão em Python
+
+Copiar o script `pdfer.py` e os ficheiros de configuração da pasta `ITI-Lab/docker/pdfer-python`:
+
+```bash
+cd ~/ITI-Lab/docker/pdfer-python
+scp pdfer.py itiusr@192.168.57.11:~/pdfer-lab/
+scp compose.yaml itiusr@192.168.57.11:~/pdfer-lab/
+scp Dockerfile itiusr@192.168.57.11:~/pdfer-lab/
 ```
 
 No final, o diretório `pdefer-lab` no nó 1 deverá apresentar esta estrutura:
 
 ```text
-pdfer-lab/
-├── pdfer
-├── dockerfile
-├── compose.yaml
-└── store/
+pdfer-lab/                  
+├── pdfer (Go), ou pdfer.py (Python)    
+├── Dockerfile              
+├── compose.yaml            
+└── store/                  
 ```
 
-**O ficheiro `dockerfile` deve conter o seguinte**
+**Os ficheiros de configuração, por Tecnologia, devem conter o seguinte**
+
+#### Para a versão Go: `Dockerfile`
 
 ```dockerfile
 FROM ubuntu:26.04
@@ -95,7 +113,7 @@ Este ficheiro estabelece que:
 - o servidor utiliza a porta 8080, que deve ficar `exposta`;
 - o PDFer é iniciado automaticamente quando o contentor arranca, usando o `entrypoint` indicado.
 
-**O ficheiro `compose.yaml` deve conter o seguinte**
+#### Para a versão Go: `compose.yaml`
 
 ```yaml
 services:
@@ -103,8 +121,64 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: iti/pdfer:1.0
-    container_name: pdfer
+    image: iti/pdfer-go:1.0
+    container_name: pdfer-go
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./store:/app/store
+    restart: unless-stopped
+```
+
+A montagem `./store:/app/store` associa a pasta `store` do nó, anteriormente criada, à pasta utilizada pelo servidor dentro do contentor. Deste modo:
+
+- os ficheiros permanecem no nó se o contentor for removido;
+- é possível observar diretamente os ficheiros cifrados;
+- uma nova versão do contentor pode reutilizar os dados existentes.
+
+#### Para a versão Python: `dockerfile`
+
+```dockerfile
+FROM ubuntu:24.04
+
+WORKDIR /app
+
+# Instalar Python, Flask e Cryptography de forma limpa
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-flask \
+    python3-cryptography \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pdfer.py /app/pdfer.py
+
+RUN mkdir -p /app/store
+
+EXPOSE 8080
+
+ENTRYPOINT ["python3", "/app/pdfer.py"]
+```
+
+Este ficheiro estabelece que:
+
+- a imagem é baseada em Ubuntu Linux 24.04;
+- o diretório de execução do servidor (**dentro do container**) é `/app`;
+- são instalados os módulos necessários para executar o servidor
+- o executável é copiado para `/app/pdfer`;
+- a pasta usada para dados pelo programa é `/app/store`;
+- o servidor utiliza a porta 8080, que deve ficar `exposta`;
+- o PDFer é iniciado automaticamente quando o contentor arranca, usando o `entrypoint` indicado.
+
+#### Para a versão Python: `compose.yaml`
+
+```yaml
+services:
+  pdfer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: iti/pdfer-python:1.0
+    container_name: pdfer-python
     ports:
       - "8080:8080"
     volumes:
