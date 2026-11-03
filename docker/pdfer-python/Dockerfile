@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 WORKDIR /app
 
@@ -17,4 +17,4 @@ RUN mkdir -p /app/store
 
 EXPOSE 8080
 
-ENTRYPOINT ["python3", "/app/server.py"]
+ENTRYPOINT ["python3", "/app/pdfer.py"]
