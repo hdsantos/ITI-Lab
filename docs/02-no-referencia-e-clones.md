@@ -27,6 +27,12 @@ Diferenças vs normal:
 *   Tipo de instalação: **Minimized** (quando o instalador perguntar)
 *   Pacotes: marcar **OpenSSH server**
 
+> [!IMPORTANT]
+> Durante a instalação do OpenSSH nos nós, não importar nesta fase chaves pessoais do GitHub. Manter temporariamente ativa a autenticação por password,
+> porque será utilizada pelo `ssh-copy-id` para instalar a chave pública do controlador.
+>
+> Depois de confirmar o acesso do controlador por chave pública, a autenticação SSH por password poderá ser desativada.
+
 ## 3. Primeiro boot - Instalar ferramentas em falta
 
 O minimized não traz `nano`, `netplan` nem `ping`. Nota: o `python3-flask` foi adicionado porque pode ser desejável fazer o pdfer em python.
@@ -34,12 +40,12 @@ O minimized não traz `nano`, `netplan` nem `ping`. Nota: o `python3-flask` foi 
 ```bash
 ip a
 # anotar IP do enp0s3 (bridge) ex: 192.168.1.68 (se o bridge for com um interface ligado à Eduroam o IP não será atribuído e deverá escolher NAT, repetindo o processo)
-# Ligar do host:
-ssh itiusr@192.168.1.68
+# Ligar do host (usar o username criado na instalação):
+ssh <user>@192.168.1.68
 
 # Instalar o que falta (seguro, não estraga nada)
 sudo apt update
-sudo apt install netplan.io nano iputils-ping net-tools iproute2 python3-flask -y --no-install-recommends
+sudo apt install netplan.io nano iputils-ping net-tools iproute2 -y --no-install-recommends
 
 # Limpeza (minimized já é limpo, mas é melhor remover restos)
 sudo apt purge cloud-init -y
@@ -117,31 +123,51 @@ history -c
 sudo poweroff
 ```
 
+> [!IMPORTANT]
+> Depois de executar o `sysprep` e desligar a VM `iti-no`, **não volte a arrancá-la, pelo menos antes de concluir todas as clonagens**.
+>
+> Se esta VM for iniciada, o sistema poderá regenerar o `machine-id` e as chaves SSH. Os clones criados posteriormente poderão então herdar os mesmos identificadores, provocando conflitos.
+
 ## 6. Clonagem no VirtualBox
 
-VM desligada `iti-no` (agora `node1`) > Clique direito > Clone:
+Com a VM `iti-no` desligada, no VirtaulBox Manager e com o rato sobre a VM `iti-no` > Clique direito > Clone:
 
-*   Nome: `node1` (se ainda não renomeou) ou `node2`
+*   Nome: `node1` ou `node2`, consoante o caso
 *   Tipo: **Full Clone**
 *   **Marcar: Generate new MAC addresses** (obrigatório)
 
-Repetir para criar `node2`.
+Repetir para criar qualquer outro nó adicional.
 
-### 6.1 Configurar `node2`
+### 6.1 Inicializar cada nó após a clonagem
+
+Os passos seguintes são obrigatórios no `node1` e no `node2`, porque ambos
+foram criados a partir da imagem depois da remoção do `machine-id` e das
+chaves SSH.
+
+Arrancar cada VM pela consola do VirtualBox e executar:
+
+```bash
+sudo systemd-machine-id-setup
+sudo ssh-keygen -A
+sudo systemctl enable ssh
+sudo systemctl restart ssh
+```
+Em cada caso confirmar a alteração e o estado do serviço SSH:
+
+```bash
+cat /etc/machine-id
+ls -l /etc/ssh/ssh_host_*_key.pub
+systemctl status ssh --no-pager
+```
+
+O `machine-id` e as chaves SSH devem ser diferentes em cada nó.
+
+### 6.2 Configurar `node2`
 
 Arrancar `node2` pela consola do VirtualBox (Show):
 
 ```bash
-# Se o machine-id ainda estiver vazio (ver e alterar:
-cat /etc/machine-id
-sudo systemd-machine-id-setup
-
-# Recriar chaves SSH (apagadas no sysprep)
-sudo ssh-keygen -A
-sudo systemctl enable ssh
-sudo systemctl restart ssh
-
-# Trocar IP e hostname
+# Ajustar o IP e hostname
 sudo nano /etc/netplan/50-vbox.yaml
 # trocar 192.168.57.11/24 para 192.168.57.12/24
 
@@ -153,22 +179,13 @@ sudo nano /etc/hosts  # trocar node1 por node2
 
 sudo reboot
 ```
+Esta última operação terá que ser feita para todos os nós criados, exceto o `node1` porque ele herdou o IP e o `hostname` corretos do nó de referência que serve de base a todos os clones.
 
-### 6.2 Verificar `node1` (se SSH não arrancou)
-
-Se clonou a partir de `iti-no` já com sysprep, o `node1` também ficou sem chaves. Fazer o mesmo que no `node2`:
-
-```bash
-sudo systemd-machine-id-setup
-sudo ssh-keygen -A
-sudo systemctl enable ssh
-sudo systemctl restart ssh
-```
 ## 7. Validação a partir do controlador
 
 No controlador (`192.168.57.10`):
 
-Nesta fase e antes de validar a operação do Ansible, é necessário copiar a chave pública do controlador, criada durante a sua instalação. Relembra-se aqui que o Ansible não usa a autenticação por password no SSH, uma vez que não é suposto executar interativamente. Assim, recorre habitualmente à autenticação por chave pública/privada.
+Nesta fase e antes de validar a operação do Ansible, é necessário copiar a chave pública do controlador, criada durante a sua instalação. Relembra-se aqui que o Ansible não usa a autenticação por password no SSH, uma vez que não é suposto executar interativamente. Assim, recorre habitualmente à autenticação por chave pública/privada. **Nota: não se esqueça de ajustar o username para o seu caso**
 
 ```bash
 ssh-copy-id itiusr@192.168.57.11
@@ -186,10 +203,11 @@ node2 ansible_host=192.168.57.12 ansible_user=itiusr
 
 [docker_nodes:vars]
 ansible_python_interpreter=/usr/bin/python3
+ansible_become_exe=/usr/bin/sudo.ws
 EOF
 ```
 
-NOTA: este ficherio de inventário inclui os dois nós. Se por alguma razão apenas tiver um nó, ou se tiver mais do que dois, deve apenas atualizar este ficheiro de inventári.
+NOTA: este ficherio de inventário inclui os dois nós. Se por alguma razão apenas tiver um nó, ou se tiver mais do que dois, deve apenas atualizar este ficheiro de inventário.
 
 ```bash
 ansible -i inventory.ini docker_nodes -m ping
@@ -199,7 +217,7 @@ ansible -i inventory.ini docker_nodes -m ping
 ansible -i inventory.ini docker_nodes -a "df -h"
 ```
 
-Se der `pong` nos nós indicados, o lab está pronto para a fase seguinte que consiste na instalção do Docker.
+Se der `pong` nos nós indicados, o lab está pronto para a fase seguinte que consiste na instalção do Docker. O último comando ilustra como é possível executar remotamente uma operação nos nós usando o ansible (ambos executarão o comando `df -h` usando o interpretador do python.
 
 ## 8. Instalação do Docker nos nós
 
@@ -207,8 +225,9 @@ Depois de confirmar que os nós respondem ao módulo `ping`, instalar o Docker a
 
 ```bash
 # assumindo que está na diretoria ~/ITI-Lab/ansible
-ansible-playbook - inventory.ini 01-Install-Docker.yml -k
+ansible-playbook -i inventory.ini 01-Install-Docker.yml -K -e ansible_become_exe=/usr/bin/sudo.ws
 ```
+***Nota: o K maísculo no último comando***
 
 A opção `-K` solicita a password de `sudo` do utilizador `itiusr`, necessária porque a instalação de pacotes e a configuração do serviço Docker exigem privilégios administrativos. Como se pode observar, o `playbook` adiciona o utilizador `itiusr` ao grupo `docker` para que não seja necessário executar os comandos Docker com sudo. No entanto, essa alteração exige a reinicialização dos nós antes de entrar em efeito. Em cada um dos nós, executar:
 

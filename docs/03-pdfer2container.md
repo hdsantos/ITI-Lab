@@ -50,17 +50,13 @@ mkdir -p ~/pdfer-lab/store
 exit
 ```
 
-Copiar o executável `pdefer` já incluido na pasta `ÍTI-Lab/docker/pdefer` no repositório:
+Copiar o executável `pdefer` e os ficheiros de configuração, já incluidos na pasta `ÍTI-Lab/docker/pdefer-go` no repositório:
 
 ```bash
-cd ~/ITI-Lab/docker/pdfer
+cd ~/ITI-Lab/docker/pdfer-go
 scp pdfer itiusr@192.168.57.11:~/pdfer-lab/
-```
-
-Copiar também o ficheiro `compose.yaml` disponibilizado na mesma pasta:
-
-```bash
 scp compose.yaml itiusr@192.168.57.11:~/pdfer-lab/
+scp dockerfile itiusr@192.168.57.11:~/pdfer-lab/
 ```
 
 No final, o diretório `pdefer-lab` no nó 1 deverá apresentar esta estrutura:
@@ -68,24 +64,12 @@ No final, o diretório `pdefer-lab` no nó 1 deverá apresentar esta estrutura:
 ```text
 pdfer-lab/
 ├── pdfer
-├── Dockerfile
+├── dockerfile
 ├── compose.yaml
 └── store/
 ```
 
-**O ficheiro `Dockerfile` será criado no passo seguinte**.
-
-## 3. Criar o `Dockerfile`
-
-Ligar novamente ao nó e entrar no diretório do projeto:
-
-```bash
-ssh itiusr@192.168.57.11
-cd ~/pdfer-lab
-nano Dockerfile
-```
-
-Introduzir o conteúdo seguinte:
+**O ficheiro `dockerfile` deve conter o seguinte**
 
 ```dockerfile
 FROM ubuntu:26.04
@@ -111,9 +95,7 @@ Este ficheiro estabelece que:
 - o servidor utiliza a porta 8080, que deve ficar `exposta`;
 - o PDFer é iniciado automaticamente quando o contentor arranca, usando o `entrypoint` indicado.
 
-## 4. Verificar o `compose.yaml`
-
-O ficheiro fornecido contém:
+**O ficheiro `compose.yaml` deve conter o seguinte**
 
 ```yaml
 services:
@@ -136,9 +118,9 @@ A montagem `./store:/app/store` associa a pasta `store` do nó, anteriormente cr
 - é possível observar diretamente os ficheiros cifrados;
 - uma nova versão do contentor pode reutilizar os dados existentes.
 
-## 5. Construir a imagem e iniciar o contentor
+## 2. Construir a imagem e iniciar o contentor
 
-No `node1`, a partir do controlador com o sheel remoto, dentro de `~/pdfer-lab`:
+No `node1`, a partir do controlador com o shell remoto, dentro de `~/pdfer-lab`:
 
 ```bash
 docker compose up --build -d
@@ -164,9 +146,9 @@ e se for necessário acompanhar continuamente os logs:
 docker compose logs -f pdfer
 ```
 
-## 6. Testar o servidor
+## 3. Testar o servidor
 
-### 6.1 Listar os ficheiros
+### 3.1 Listar os ficheiros
 
 No próprio `node1` (diretamente ou por shell remoto):
 
@@ -180,13 +162,13 @@ Ou a partir do controlador, ou mesmo do host:
 curl http://192.168.57.11:8080/files
 ```
 
-### 6.2 Criar um ficheiro cifrado
+### 3.2 Criar um ficheiro cifrado
 
 ```bash
 curl -X POST http://192.168.57.11:8080/files \
   -H "Content-Type: application/json" \
   -d '{
-    "key": "chave-de-teste",
+    "key": "1234567890123456",
     "length": 1000,
     "fileName": "teste.txt"
   }'
@@ -200,17 +182,17 @@ ls -lh ~/pdfer-lab/store
 
 O conteúdo guardado deverá estar cifrado e, por isso, não deverá corresponder ao conteúdo devolvido pelo servidor após decifragem.
 
-### 6.3 Recuperar e decifrar um ficheiro
+### 3.3 Recuperar e decifrar um ficheiro
 
 Substituir `teste.txt` pelo identificador devolvido pelo servidor, caso seja diferente:
 
 ```bash
 curl -X GET http://192.168.57.11:8080/files/teste.txt \
   -H "Content-Type: application/json" \
-  -d '{"key":"chave-de-teste"}'
+  -d '{"key":"1234567890123456"}'
 ```
 
-## 7. Parar e voltar a executar o contentor
+## 4. Parar e voltar a executar o contentor
 
 Parar o contentor, a partir do `node1`:
 
@@ -239,7 +221,7 @@ Para reconstruir a imagem depois de substituir o executável ou alterar o `Docke
 docker compose up --build -d
 ```
 
-## 8. Verificações finais
+## 5. Verificações finais
 
 Antes de considerar esta etapa concluída, confirmar que:
 
