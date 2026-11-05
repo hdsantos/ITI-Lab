@@ -105,7 +105,7 @@ ansible-playbook -i inventory.ini 99-Verify.yml -K
 ```
 
 **8. Percurso para Trabalhadores-Estudantes (T-E):**
-> Se tens estatuto de Trabalhador-Estudante e não podes acompanhar as aulas semanais nem trabalhar em grupo de 6, o laboratório base acima é o mesmo, mas o projeto é diferente. Em vez de 3 fases com iSCSI e cluster multi-nó, farás uma infraestrutura completa mas minimalista num único nó, com storage NFS local em mirror e balanceamento com 2 réplicas, com definição científica obrigatória da carga para métricas. Ver guia dedicado: **[docs/10-ProjetoSimplificado.md](docs/10-ProjetoSimplificado.md)**
+> Para um aluno Trabalhador-Estudante, que não pode acompanhar as aulas semanais nem trabalhar em grupo de 6, o laboratório base acima é o mesmo, mas o projeto é diferente. Em vez de 3 fases com iSCSI e cluster multi-nó, fará uma infraestrutura completa mas minimalista num único nó, com storage NFS local em mirror e balanceamento com 2 réplicas, com definição científica obrigatória da carga para métricas. Ver guia dedicado: **[docs/10-ProjetoSimplificado.md](docs/10-ProjetoSimplificado.md)**
 
 #### Notas de Segurança para Alunos
 
@@ -171,7 +171,7 @@ ansible-playbook -i inventory.ini 99-Verify.yml -K
 ```
 
 8. **Path for Working Students (T-E):**
-> If you have Working Student status and cannot attend weekly classes or work in a group of 6, the base lab above is the same, but the project is different. Instead of 3 phases with iSCSI for distributes storage, and multi-node cluster, you will build a complete but minimal infrastructure on a single computer, with local mirrored NFS storage and 2-replica load balancing, including a mandatory scientific definition of the workload for metrics. See dedicated guide: **[docs/10-ProjetoSimplificado.md](docs/10-ProjetoSimplificado.md)**
+> For Working Students that cannot attend weekly classes or work in a group of 6, the base lab above is the same, but the project is different. Instead of 3 phases with iSCSI for distributes storage, and multi-node cluster, you will build a complete but minimal infrastructure on a single computer, with local mirrored NFS storage and 2-replica load balancing, including a mandatory scientific definition of the workload for metrics. See dedicated guide: **[docs/10-ProjetoSimplificado.md](docs/10-ProjetoSimplificado.md)**
 
 #### Key Troubleshooting Learned
 
