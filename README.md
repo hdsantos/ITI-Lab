@@ -1,9 +1,9 @@
 # ITI - Ansible + Docker + Monitoring Lab
 ## Laboratório de ITI com Ansible e Docker em VirtualBox
 
-[![Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04%20Resolute-orange)](https://releases.ubuntu.com/)
-[![VirtualBox](https://img.shields.io/badge/VirtualBox-7.x-blue)](https://www.virtualbox.org/)
-[![Ansible](https://img.shields.io/badge/Ansible-core%202.20-black)](https://docs.ansible.com/)
+[[Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04%20Resolute-orange)](https://releases.ubuntu.com/)
+[[VirtualBox](https://img.shields.io/badge/VirtualBox-7.x-blue)](https://www.virtualbox.org/)
+[[Ansible](https://img.shields.io/badge/Ansible-core%202.20-black)](https://docs.ansible.com/)
 
 [🇵🇹 Português](#-português) | [🇬🇧 English](#-english)
 
@@ -15,7 +15,7 @@ Base do Laboratório de virtualização para o projeto prático da UC de Infraes
 
 #### Arquitetura
 
-![Arquitetura do Lab](architecture.png)
+[Arquitetura do Lab](architecture.png)
 
 *   **Host:** Portátil com VirtualBox 7.x
 *   **Rede Host-only `192.168.57.0/24` SEM DHCP:** rede de gestão. Isola o lab da rede campus/casa.
@@ -34,6 +34,7 @@ Base do Laboratório de virtualização para o projeto prático da UC de Infraes
 │   └── 02-no-referencia-e-clones.md       <- Golden image minimized + clones + sysprep
 |   └── 03-pdfer2container.md              <- Colocar o PDFer a correr no node1
 │   └── 04-monitorizacao.md                <- Prometheus, cAdvisor e Grafana
+│   └── 10-ProjetoSimplificado.md          <- Percurso T-E (individual, NFS + avaliação de métricas)
 ├── ansible/
 │   ├── inventory.ini                      <- Inventário com node1/node2
 │   ├── 01-install-docker.yml              <- (a criar) Instala Docker nos nós
@@ -103,6 +104,9 @@ ansible-playbook -i inventory.ini 02-Deploy-Monitoring.yml -K \
 ansible-playbook -i inventory.ini 99-Verify.yml -K
 ```
 
+**8. Percurso para Trabalhadores-Estudantes (T-E):**
+> Se tens estatuto de Trabalhador-Estudante e não podes acompanhar as aulas semanais nem trabalhar em grupo de 6, o laboratório base acima é o mesmo, mas o projeto é diferente. Em vez de 3 fases com iSCSI e cluster multi-nó, farás uma infraestrutura completa mas minimalista num único nó, com storage NFS local em mirror e balanceamento com 2 réplicas, com definição científica obrigatória da carga para métricas. Ver guia dedicado: **[docs/10-ProjetoSimplificado.md](docs/10-ProjetoSimplificado.md)**
+
 #### Notas de Segurança para Alunos
 
 *   OpenSSH com password auth é apenas para lab. Em produção usar chaves.
@@ -129,22 +133,45 @@ Same as PT section. `/docs` contains step-by-step guides, `/ansible` the YAML ex
 
 #### Quick Start
 
-1. Follow [docs/01-controlador.md](docs/01-controlador.md) for controller setup
-2. Follow [docs/02-no-referencia-e-clones.md](docs/02-no-referencia-e-clones.md) for golden image and clones
-3. Validate with `ansible -m ping`
-4. Follow [docs/03-pdfer2container.md](docs/03-pdfer2container.md) to build and run the PDFer container on `node1`
-5. Follow [docs/04-monitorizacao.md](docs/04-monitorizacao.md) to deploy cAdvisor, Prometheus, and optionally Grafana
-6. Run the final validation:
+1. Requirements: VirtualBox 7.x, ISO Ubuntu Server 26.04.1, 8GB RAM free in the host (ninimum).
+2. Follow [docs/01-controlador.md](docs/01-controlador.md) for controller setup
+3. Follow [docs/02-no-referencia-e-clones.md](docs/02-no-referencia-e-clones.md) for golden image and clones
+4. Install Docker on nodes:
+> Covers Ansible basic utilization
+```bash
+cd ~/ITI-Lab/ansible
+ansible-playbook -i inventory.ini 01-Install-Docker.yml -K
+```
+5. Follow [docs/03-pdfer2container.md](docs/03-pdfer2container.md) to build and run the PDFer container on `node1`
+
+After deployment verify it form the controller:
+
+```bash
+curl http://192.168.57.11:8080/files
+```
+
+6. Follow [docs/04-monitorizacao.md](docs/04-monitorizacao.md) to deploy cAdvisor, Prometheus, and optionally Grafana. 
+Normal configuration:
+
+```bash
+ansible-playbook -i inventory.ini 02-Deploy-Monitoring.yml -K
+```
+
+Limited memory resources configuration, without Grafana:
+
+```bash
+ansible-playbook -i inventory.ini 02-Deploy-Monitoring.yml -K \
+  -e monitoring_grafana_enabled=false
+```
+
+7. Run the final validation:
 
 ```bash
 ansible-playbook -i inventory.ini 99-Verify.yml -K
 ```
 
-The PDFer executable, `Dockerfile`, and `compose.yaml` are kept under `docker/pdfer/`. After deployment, validate the server from the controller:
-
-```bash
-curl http://192.168.57.11:8080/files
-```
+8. **Path for Working Students (T-E):**
+> If you have Working Student status and cannot attend weekly classes or work in a group of 6, the base lab above is the same, but the project is different. Instead of 3 phases with iSCSI for distributes storage, and multi-node cluster, you will build a complete but minimal infrastructure on a single computer, with local mirrored NFS storage and 2-replica load balancing, including a mandatory scientific definition of the workload for metrics. See dedicated guide: **[docs/10-ProjetoSimplificado.md](docs/10-ProjetoSimplificado.md)**
 
 #### Key Troubleshooting Learned
 
